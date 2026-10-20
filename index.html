@@ -985,10 +985,13 @@ async function init() {
   // Opt-in (?wheel=1): when embedded, forward wheel/swipe movement to the parent page instead of scrolling
   if (q.get("wheel") === "1" && window.parent !== window) {
     const fwd = (dy) => window.parent.postMessage({ type: "disney-wheel", dy }, "*");
-    document.addEventListener("wheel", (e) => { e.preventDefault(); fwd(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY); }, { passive: false });
+    let lock = { up: true, down: true }; // parent can release the ends: {type:"disney-lock", up, down}
+    window.addEventListener("message", (e) => { const d = e.data || {}; if (d.type === "disney-lock") lock = { up: !!d.up, down: !!d.down }; });
+    const blocked = (dy) => (dy > 0 && !lock.down) || (dy < 0 && !lock.up);
+    document.addEventListener("wheel", (e) => { const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; if (blocked(dy)) return; e.preventDefault(); fwd(dy); }, { passive: false });
     let ty = null;
     document.addEventListener("touchstart", (e) => { ty = e.touches[0].clientY; }, { passive: true });
-    document.addEventListener("touchmove", (e) => { e.preventDefault(); const y = e.touches[0].clientY; if (ty !== null) fwd(ty - y); ty = y; }, { passive: false });
+    document.addEventListener("touchmove", (e) => { const y = e.touches[0].clientY; const dy = ty === null ? 0 : ty - y; ty = y; if (blocked(dy)) return; e.preventDefault(); fwd(dy); }, { passive: false });
   }
   document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight" || e.key === "ArrowDown") go(cur + 1); if (e.key === "ArrowLeft" || e.key === "ArrowUp") go(cur - 1); });
   window.addEventListener("resize", () => { resize(); go(cur, false); });
