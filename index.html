@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disney Remakes: chart only</title>
+<style>:root {
+  color-scheme: light;
+  --surface-0: #f4f3ef;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #85837d;
+  --grid: #e4e2dc;
+  --connector: #b9b7b0;
+  --series-original: #2a78d6;
+  --series-remake: #eb6834;
+  --series-budget: #9ad9bb;
+  --series-box: #0f7a52;
+  --card: rgba(252, 252, 251, 0.94);
+  --card-border: #dedcd5;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #121211;
+    --surface-1: #1a1a19;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8d86;
+    --grid: #2e2d2b;
+    --connector: #5c5b56;
+    --series-original: #3987e5;
+    --series-remake: #d95926;
+  --series-budget: #8fd4b4;
+  --series-box: #1f8f63;
+    --card: rgba(26, 26, 25, 0.94);
+    --card-border: #34332f;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211;
+  --surface-1: #1a1a19;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8d86;
+  --grid: #2e2d2b;
+  --connector: #5c5b56;
+  --series-original: #3987e5;
+  --series-remake: #d95926;
+  --series-budget: #8fd4b4;
+  --series-box: #1f8f63;
+  --card: rgba(26, 26, 25, 0.94);
+  --card-border: #34332f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+/* Intro / outro */
+.intro, .outro {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+.intro { padding-top: 18vh; padding-bottom: 12vh; }
+.kicker {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+h1 {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 5vw, 44px);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.dek { margin: 0; font-size: 19px; color: var(--text-secondary); }
+.outro { padding-top: 10vh; padding-bottom: 20vh; }
+
+/* Full-screen statement after the scrollytelling section; the sticky chart
+   has already scrolled away with the end of .scrolly */
+.statement {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+}
+.statement h2 {
+  max-width: 14ch;
+  margin: 0;
+  font-size: clamp(40px, 8vw, 96px);
+  line-height: 1.05;
+  font-weight: 800;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--text-primary);
+}
+.statement > div { display: flex; flex-direction: column; align-items: center; }
+.statement p {
+  max-width: 32ch;
+  margin: 24px 0 0;
+  font-size: clamp(18px, 2.4vw, 26px);
+  line-height: 1.4;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--text-secondary);
+}
+.source { font-size: 13px; color: var(--text-muted); }
+
+/* Scrolly layout: captions left, sticky graphic right */
+.scrolly {
+  display: flex;
+  gap: 32px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+.steps {
+  position: relative;
+  flex: 0 0 34%;
+  padding-bottom: 30vh;
+}
+.step {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+}
+.step p {
+  margin: 0;
+  padding: 20px 22px;
+  font-size: 18px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  opacity: 0.45;
+  transition: opacity 300ms ease;
+}
+.step.is-active p { opacity: 1; color: var(--text-primary); }
+.step:first-child { margin-top: 10vh; }
+/* Card deck: .deck reserves scroll distance (height set in main.js); the
+   cards live in a fixed window and main.js moves the gap-free stack. */
+.deck { position: relative; }
+.deck-window {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.deck-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  will-change: transform;
+}
+
+/* Flip cards: front = original score, back = remake score */
+.card {
+  width: 100%;
+  max-width: 340px;
+  perspective: 1200px;
+}
+.card-inner {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 700ms cubic-bezier(0.4, 0.1, 0.2, 1);
+}
+.card.is-flipped .card-inner { transform: rotateY(180deg); }
+.card-face {
+  grid-area: 1 / 1;
+  padding: 20px 22px 22px;
+  background: var(--surface-1);
+  border: 1px solid var(--card-border);
+  border-top: 4px solid var(--series-original);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card-face.back {
+  border-top-color: var(--series-remake);
+  transform: rotateY(180deg);
+}
+.card-kicker {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.card-title { margin-top: 6px; font-size: 20px; font-weight: 700; line-height: 1.2; color: var(--text-primary); }
+.card-score {
+  margin-top: 10px;
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.card-note { margin-top: 6px; font-size: 14px; color: var(--text-secondary); }
+@media (prefers-reduced-motion: reduce) {
+  .card-inner { transition: none; }
+}
+
+.graphic {
+  position: sticky;
+  top: 25vh;
+  flex: 1 1 auto;
+  height: 50vh;
+  margin: 0;
+  padding: 16px 12px 8px;
+  background: var(--surface-1);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+#chart { position: relative; flex: 1 1 auto; min-height: 0; }
+#chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.legend {
+  display: flex;
+  gap: 18px;
+  padding: 0 8px 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.legend > span { display: inline-flex; align-items: center; }
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 0;
+}
+.swatch.original { background: var(--series-original); }
+.swatch.remake { background: var(--series-remake); }
+.swatch.budget { background: var(--series-budget); border-radius: 2px; }
+.swatch.box { background: var(--series-box); border-radius: 2px; }
+.legend-money { display: none !important; }
+.graphic.is-money .legend-money { display: inline-flex !important; }
+.graphic.is-money .legend-reviews { display: none !important; }
+
+/* Chart marks */
+.grid line { stroke: var(--grid); stroke-width: 1; }
+.grid text, .axis-title { fill: var(--text-muted); font-size: 11px; }
+.x-label { fill: var(--text-secondary); font-size: 12px; }
+.connector { stroke: var(--connector); stroke-width: 2; }
+.dot { stroke: var(--surface-1); stroke-width: 2; }
+.dot.original { fill: var(--series-original); }
+.dot.remake { fill: var(--series-remake); }
+.bar.budget { fill: var(--series-budget); }
+.bar.box { fill: var(--series-box); }
+.na { fill: var(--text-secondary); font-size: 10px; pointer-events: none; }
+.panel-title { fill: var(--text-primary); font-size: 12px; font-weight: 600; }
+.ocol:not(.is-shown) { pointer-events: none; }
+.ocol.is-hover .x-label { fill: var(--text-primary); font-weight: 600; }
+.hit { fill: transparent; cursor: default; }
+.col .x-label { transition: fill 200ms; }
+.col:not(.is-shown) .x-label { fill: var(--text-muted); }
+.col.is-current .x-label,
+.col.is-hover.is-shown .x-label { fill: var(--text-primary); font-weight: 600; }
+
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  min-width: 150px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 5;
+}
+.tooltip .tt-title { font-weight: 600; margin-bottom: 4px; }
+.tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; color: var(--text-secondary); }
+.tooltip .tt-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* Frozen section: the caption and chart stick for the length of the
+   invisible steps; each step that crosses 60% of the viewport adds a circle */
+.frozen { position: relative; }
+.frozen-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8vh 16px 6vh;
+}
+.frozen-caption {
+  margin: 0 0 4vh;
+  font-size: clamp(26px, 4vw, 44px);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--text-primary);
+}
+#frozen-chart { position: relative; flex: 1 1 auto; width: 100%; max-width: 900px; min-height: 0; }
+#frozen-chart svg { display: block; width: 100%; height: 100%; }
+.frozen-steps { margin-top: -100vh; padding-top: 50vh; }
+.frozen-step { height: 80vh; }
+.fz-circle { stroke: var(--surface-0); stroke-width: 2; }
+.fz-circle.budget { fill: var(--series-budget); }
+.fz-circle.box { fill: var(--series-box); }
+.fz-circle.franchise { fill: var(--series-original); }
+.fz-leader { stroke: var(--text-secondary); stroke-width: 1; }
+.fz-value { fill: var(--text-primary); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fz-desc { fill: var(--text-secondary); font-size: 13px; }
+
+/* Total budgets chart */
+.invest {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20vh 16px 10vh;
+}
+.invest h2 {
+  margin: 0 0 8px;
+  font-size: clamp(26px, 4vw, 40px);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.invest-dek { margin: 0 0 24px; font-size: 18px; color: var(--text-secondary); }
+#invest-chart { position: relative; }
+#invest-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.inv-bar { cursor: default; }
+.inv-bar.is-hover { opacity: 0.75; }
+
+/* Unmade originals: grid of movie icons that pop in one by one */
+.unmade {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 10vh 16px 10vh;
+}
+.unmade h2 {
+  margin: 0 0 8px;
+  font-size: clamp(26px, 4vw, 40px);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.unmade-dek { margin: 0 0 28px; font-size: 18px; color: var(--text-secondary); }
+.unmade-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 16px;
+}
+.unmade-icon {
+  display: block;
+  width: 100%;
+  max-width: 64px;
+  justify-self: center;
+  height: auto;
+  color: var(--series-original);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 300ms ease, transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.unmade-icon .stripe { stroke: var(--surface-0); stroke-width: 1.6; stroke-linecap: round; fill: none; }
+.unmade-grid.is-shown .unmade-icon { opacity: 1; transform: none; }
+.unmade-callout {
+  margin: 28px 0 0;
+  font-size: clamp(20px, 2.6vw, 28px);
+  line-height: 1.3;
+  text-wrap: balance;
+  color: var(--text-primary);
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+.unmade.is-done .unmade-callout { opacity: 1; }
+@media (max-width: 560px) {
+  .unmade-grid { grid-template-columns: repeat(4, 1fr); gap: 14px 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .unmade-icon, .unmade-callout { transition: none; }
+}
+.inv-bar.remakes { fill: var(--series-remake); }
+.inv-bar.originals { fill: var(--series-original); }
+.inv-name { fill: var(--text-primary); font-size: 15px; font-weight: 600; }
+.inv-count { fill: var(--text-secondary); font-size: 13px; }
+.inv-value { fill: var(--text-primary); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Data table */
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--text-secondary); }
+table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+caption { margin-top: 20px; text-align: left; font-weight: 600; color: var(--text-secondary); }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--grid); text-align: right; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+
+/* Phone: sticky chart on top, captions scroll over it */
+@media (max-width: 760px) {
+  .scrolly { flex-direction: column; gap: 0; position: relative; }
+  .graphic { order: -1; top: 0; flex: 0 0 auto; height: 50vh; z-index: 0; }
+  .steps { position: relative; z-index: 1; margin-top: -50vh; padding-bottom: 10vh; }
+  .step { min-height: 90vh; align-items: flex-end; padding-bottom: 4vh; }
+  .step:first-child { margin-top: 0; }
+  .x-label { font-size: 10px; }
+  .step p { font-size: 16px; opacity: 1; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); }
+  .step:not(.is-active) p { opacity: 0.6; }
+}
+
+/* chart-only overrides */
+html, body { height: 100%; margin: 0; padding: 0; }
+body { display: flex; flex-direction: column; }
+.graphic { position: static; flex: 1 1 auto; height: auto; border-radius: 0; border: 0; }
+.controls { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font: 13px sans-serif; color: var(--text-secondary); background: var(--surface-0); }
+.controls button { font: inherit; padding: 4px 12px; cursor: pointer; }
+.controls input[type=range] { flex: 1; }
+#steplabel { min-width: 260px; }
+body.no-controls .controls { display: none; }
+</style></head>
+<body>
+<figure class="graphic">
+  <div class="legend" aria-hidden="true">
+    <span class="legend-reviews"><span class="swatch original"></span>Original</span>
+    <span class="legend-reviews"><span class="swatch remake"></span>Remake</span>
+    <span class="legend-money"><span class="swatch budget"></span>Budget</span>
+    <span class="legend-money"><span class="swatch box"></span>Box office</span>
+  </div>
+  <div id="chart" role="img" aria-label="Disney originals vs. live-action remakes: reviews, budget and box office"></div>
+  <div class="tooltip" hidden></div>
+</figure>
+<div class="controls"><button id="prev">&larr;</button><button id="next">&rarr;</button><input id="slider" type="range" min="0" max="0" value="0"><span id="steplabel"></span></div>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script>// Scrollytelling: Disney originals vs. live-action remakes
+// Flip-card captions (left) drive a sticky d3 dot chart (right).
+// Each film's card shows the original score on the front; as the card passes
+// the chart it pauses and flips to the remake score.
+
+const CSV_PATH = "Review Transforming.csv";
+const MONEY_CSV_PATH = "budget&returns.csv";
+const ORIGINALS_CSV_PATH = "originalsbudget&boxoffice.csv";
+
+// Used only if the CSV can't be fetched (e.g. page opened via file://).
+const FALLBACK_DATA = `Property,Original,Remake
+Cinderella,98,83
+The Jungle Book,88,94
+Beauty and the Beast,95,71
+Dumbo,95,46
+Aladdin,96,57
+The Lion King,92,52
+Lady and the Tramp,91,67
+Mulan,92,71
+Pinocchio,100,27
+Peter Pan,79,63
+The Little Mermaid,92,67
+Snow White,97,39
+Lilo & Stitch,86,73
+Moana,96,33`;
+
+const FALLBACK_MONEY = `Property,Budget,Box Office Returns
+Cinderella,"$95,000,000","$542,351,353"
+The Jungle Book,"$175,000,000","$966,550,600"
+Beauty and the Beast,"$160,000,000","$1,263,521,126"
+Dumbo,"$170,000,000","$353,284,621"
+Aladdin,"$183,000,000","$1,050,693,953"
+The Lion King,"$260,000,000","$1,656,943,394"
+Lady and the Tramp,"$60,000,000",
+Mulan,"$200,000,000","$69,965,374"
+Pinocchio,"$150,000,000",
+Peter Pan,"$170,000,000",
+The Little Mermaid,"$240,200,000","$569,626,289"
+Snow White,"$336,500,000","$205,679,463"
+Lilo & Stitch,"$100,000,000","$1,038,027,526"
+Moana,"$250,000,000","$323,447,663"`;
+
+const FALLBACK_ORIGINALS = `Property,Budget,Box Office Returns
+Zootopia,"$150,000,000","$1,023,784,195"
+Moana,"$175,000,000","$643,331,111"
+Ralph Breaks the Internet,"$175,000,000","$529,323,962"
+Frozen 2,"$150,000,000","$1,450,026,933"
+Raya and the Last Dragon,"$100,000,000","$130,423,032"
+Encanto,"$135,000,000","$256,786,742"
+Strange World,"$158,000,000","$73,621,640"
+Wish,"$183,000,000","$254,997,360"
+Moana 2,"$150,000,000","$1,059,242,164"
+Zootopia 2,"$150,000,000","$1,870,309,291"`;
+
+const MARGIN = { top: 30, right: 12, bottom: 136, left: 54 }; // top leaves room for panel titles
+const DURATION = 500; // per dot
+const narrow = window.matchMedia("(max-width: 760px)"); // matches the phone layout in style.css
+const fmtDelta =(d) => (d > 0 ? `+${d}` : `−${Math.abs(d)}`);
+
+let data = [];
+let originalFilms = []; // original animated films from the same years (budget/box office only)
+let originals = 0; // number of films whose original dot is visible
+let remakes = 0; // number of films whose remake dot is visible
+let svg, gGrid, gCols, gOrigCols, gTitles, tooltip, figure;
+let width = 0;
+let height = 0;
+async function fetchCsv(path, fallback) { return d3.csvParse(fallback); }
+// "$95,000,000" -> 95000000; blank -> null (no box office reported)
+const parseDollars = (s) => (s && s.trim() ? +s.replace(/[$,]/g, "") : null);
+
+async function loadData() {
+  const [reviews, money, origMoney] = await Promise.all([
+    fetchCsv(CSV_PATH, FALLBACK_DATA),
+    fetchCsv(MONEY_CSV_PATH, FALLBACK_MONEY),
+    fetchCsv(ORIGINALS_CSV_PATH, FALLBACK_ORIGINALS),
+  ]);
+  originalFilms = origMoney.map((d) => ({
+    name: d.Property,
+    budget: parseDollars(d.Budget),
+    boxOffice: parseDollars(d["Box Office Returns"]),
+  }));
+  const moneyByName = new Map(money.map((d) => [d.Property, d]));
+  return reviews.map((d) => {
+    const m = moneyByName.get(d.Property) || {};
+    return {
+      name: d.Property,
+      original: +d.Original,
+      remake: +d.Remake,
+      delta: +d.Remake - +d.Original,
+      budget: parseDollars(m.Budget),
+      boxOffice: parseDollars(m["Box Office Returns"]),
+    };
+  });
+}
+
+const fmtMoney = (v) => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : `$${Math.round(v / 1e6)}M`);
+const fmtTick = (v) => (v === 0 ? "$0" : v >= 1e9 ? `$${+(v / 1e9).toFixed(1)}B` : `$${v / 1e6}M`);
+
+function setupChart() {
+  figure = d3.select(".graphic");
+  tooltip = figure.select(".tooltip");
+  svg = d3.select("#chart").append("svg");
+  gGrid = svg.append("g").attr("class", "grid");
+  gCols = svg.append("g").attr("class", "cols");
+  gOrigCols = svg.append("g").attr("class", "cols originals");
+  gTitles = svg.append("g").attr("class", "panel-titles");
+}
+
+function resize() {
+  const box = document.getElementById("chart").getBoundingClientRect();
+  width = box.width;
+  height = box.height;
+  svg.attr("viewBox", `0 0 ${width} ${height}`);
+
+  // Reserve just enough room below the plot for the longest 45° film label
+  const probe = svg.append("text").attr("class", "x-label");
+  const longest = d3.max([...data, ...originalFilms], (d) => probe.text(d.name).node().getComputedTextLength());
+  probe.remove();
+  MARGIN.bottom = Math.ceil(longest * Math.SQRT1_2) + 30 + 8;
+
+  render(false);
+}
+
+// ---- Card deck -------------------------------------------------------------
+// The film cards form one stack that scrolls as a unit, spaced one window
+// height apart so only one card is ever in view. Each time a card reaches
+// the pin line the whole stack holds still for HOLD of scrolling
+// while that card flips, then carries on. The stack lives in a fixed window;
+// the .deck element in the page flow only supplies the scroll distance.
+const HOLD = 0.4; // fraction of viewport height the stack pauses per card
+const FLIP_DELAY = 0.25; // fraction of the hold scrolled after pinning before the card flips
+const deck = { cards: [], top: [], pinStart: [], holdEnd: [], enter: 0, pinY: 0, windowTop: 0 };
+
+function render(animate = true) {
+  if (!width || !height) return;
+
+  const bars = mode !== "reviews";
+  const split = mode === "compare";
+  const wasBars = drawnMode !== "reviews";
+  const wasSplit = drawnMode === "compare";
+  const morphing = animate && bars !== wasBars; // dots <-> bars
+  const relayout = animate && split !== wasSplit; // full width <-> two panels
+
+  // Panels: columns in both get the same width, so the remakes take 14/24 of
+  // the plot and the originals 10/24 when split
+  const inner = width - MARGIN.left - MARGIN.right;
+  const nR = data.length;
+  const nO = originalFilms.length;
+  const leftW = (inner - PANEL_GAP) * nR / (nR + nO);
+  const x = d3.scaleBand().domain(data.map((d) => d.name))
+    .range([MARGIN.left, MARGIN.left + (split ? leftW : inner)]).padding(0.1);
+  const xO = d3.scaleBand().domain(originalFilms.map((d) => d.name))
+    .range([MARGIN.left + leftW + PANEL_GAP, width - MARGIN.right]).padding(0.1);
+  const yR = d3.scaleLinear().domain([25, 100]).range([height - MARGIN.bottom, MARGIN.top]);
+  // One dollar scale for both panels so remakes and originals compare directly
+  const maxMoney = d3.max([...data, ...originalFilms], (d) => Math.max(d.budget || 0, d.boxOffice || 0));
+  const yM = d3.scaleLinear().domain([0, maxMoney]).nice().range([height - MARGIN.bottom, MARGIN.top]);
+  const y = bars ? yM : yR;
+  const r = Math.max(4, Math.min(8, x.bandwidth() / 4));
+  // Each budget/box office pair fills at most 60% of its column, leaving the
+  // rest as space between films
+  const PAIR_SHARE = 0.6;
+  const pairBarW = (step) => Math.max(3, Math.min(16, (step * PAIR_SHARE - 2) / 2));
+  const barW = pairBarW(x.step());
+  const barWO = pairBarW(xO.step());
+
+  // Gridlines + y labels; a mode switch fades old ticks out while the marks
+  // sink, and new ones in while the next marks grow
+  const ticks = bars ? yM.ticks(4) : [25, 50, 75, 100];
+  const fade = animate ? SHRINK : 0;
+  const grid = gGrid.selectAll("g.tick").data(ticks, (d) => `${bars}:${d}`).join(
+    (enter) => {
+      const g = enter.append("g").attr("class", "tick").attr("opacity", 0);
+      g.append("line");
+      g.append("text").attr("dy", "0.32em").attr("text-anchor", "end");
+      g.transition("fade").delay(fade).duration(fade).attr("opacity", 1);
+      return g;
+    },
+    (update) => update,
+    (exit) => exit.transition("fade").duration(fade).attr("opacity", 0).remove()
+  );
+  grid.attr("transform", (d) => `translate(0,${y(d)})`);
+  grid.select("line").attr("x1", MARGIN.left).attr("x2", width - MARGIN.right);
+  grid.select("text").attr("x", MARGIN.left - 8).text((d) => (bars ? fmtTick(d) : d));
+
+  const title = bars ? "US dollars" : "Review score";
+  const axisTitle = gGrid.selectAll("text.axis-title").data([0]).join("text")
+    .attr("class", "axis-title")
+    .attr("transform", `translate(10,${(MARGIN.top + height - MARGIN.bottom) / 2}) rotate(-90)`)
+    .attr("text-anchor", "middle");
+  if (axisTitle.text() !== title) {
+    axisTitle.transition("fade").duration(fade).attr("opacity", 0)
+      .transition().duration(fade).attr("opacity", 1).text(title);
+  }
+  if (!animate) axisTitle.interrupt("fade").attr("opacity", 1).text(title);
+
+  // One column per property, in CSV order
+  const cols = gCols.selectAll("g.col").data(data, (d) => d.name).join((enter) => {
+    const g = enter.append("g").attr("class", "col");
+    g.append("rect").attr("class", "hit");
+    g.append("line").attr("class", "connector");
+    g.append("rect").attr("class", "bar budget").attr("opacity", 0);
+    g.append("rect").attr("class", "bar box").attr("opacity", 0);
+    g.append("circle").attr("class", "dot remake").attr("r", 0);
+    g.append("circle").attr("class", "dot original").attr("r", 0);
+    g.append("text").attr("class", "na").attr("dy", "0.35em").attr("opacity", 0).text("streaming only");
+    g.append("text").attr("class", "x-label").attr("text-anchor", "end");
+    g.on("mouseenter", onHover).on("mousemove", onMove).on("mouseleave", onLeave);
+    return g;
+  });
+
+  // Slide columns between full width and the left panel; going back, wait for
+  // the originals to shrink away first
+  const colX = (d) => `translate(${x(d.name) + x.bandwidth() / 2},0)`;
+  const slideDelay = split ? 0 : SHRINK + (nO - 1) * MORPH_STAGGER;
+  if (relayout) cols.transition("layout").delay(slideDelay).duration(SLIDE).ease(d3.easeCubicInOut).attr("transform", colX);
+  else cols.interrupt("layout").attr("transform", colX);
+  cols
+    .classed("is-shown", (_, i) => bars || i < originals)
+    .classed("is-current", (_, i) => mode === "reviews" && i === originals - 1 && !isSummary());
+
+  cols.select(".hit")
+    .attr("x", -x.step() / 2).attr("width", x.step())
+    .attr("y", MARGIN.top).attr("height", height - MARGIN.top);
+
+  cols.select(".x-label")
+    .attr("transform", `translate(4,${height - MARGIN.bottom + 30}) rotate(-45)`)
+    .text((d) => d.name);
+
+  // Bar geometry; a value of 0 gives a flat bar sitting on the x axis
+  // A missing box office (streaming-only release) collapses to the baseline
+  const asBar = (v, side, w = barW) => {
+    const top = yM(v || 0);
+    return { x: side === "budget" ? -w - 1 : 1, y: top, width: w, height: yM(0) - top, rx: Math.min(3, w / 2) };
+  };
+  const setGeo = (sel, g) => { for (const k in g) sel.attr(k, g[k]); return sel; };
+
+  cols.select(".na")
+    .attr("transform", `translate(${barW / 2 + 1},${yM(0) - 8}) rotate(-90)`)
+    .transition("na").delay(morphing && bars ? SHRINK + GROW : 0).duration(animate ? 300 : 0)
+    .attr("opacity", (d) => (bars && d.boxOffice == null ? 1 : 0));
+
+  cols.each(function (d, i) {
+    const col = d3.select(this);
+    const budget = col.select(".bar.budget");
+    const box = col.select(".bar.box");
+    const orig = col.select(".dot.original");
+    const remake = col.select(".dot.remake");
+    const line = col.select(".connector");
+    const base = yM(0); // the x axis: same line in both modes
+    const stagger = i * MORPH_STAGGER;
+    const stopAll = () => [orig, remake, line, budget, box].forEach((s) => s.interrupt("morph").interrupt("show"));
+
+    if (bars) {
+      stopAll();
+      this._morphing = false;
+      this._orig = this._rem = undefined; // dots re-sync when returning to reviews
+      if (morphing) {
+        // 1. Dots and connector sink into the x axis and vanish
+        for (const dot of [orig, remake]) {
+          dot.transition("morph").delay(stagger).duration(SHRINK).ease(d3.easeCubicIn)
+            .attr("cy", base).attr("r", 0);
+        }
+        line.transition("morph").delay(stagger).duration(SHRINK).ease(d3.easeCubicIn)
+          .attr("y1", base).attr("y2", base);
+        // 2. Then the bars grow up out of the axis
+        setGeo(budget.attr("opacity", 1), asBar(0, "budget"));
+        setGeo(box.attr("opacity", 1), asBar(0, "box"));
+        setGeo(budget.transition("morph").delay(SHRINK + stagger).duration(GROW).ease(d3.easeCubicOut), asBar(d.budget, "budget"));
+        setGeo(box.transition("morph").delay(SHRINK + stagger).duration(GROW).ease(d3.easeCubicOut), asBar(d.boxOffice, "box"));
+      } else {
+        orig.attr("cy", base).attr("r", 0);
+        remake.attr("cy", base).attr("r", 0);
+        line.attr("y1", base).attr("y2", base);
+        budget.attr("opacity", 1);
+        box.attr("opacity", 1);
+        if (relayout) {
+          // Bars resize to the new column width as the columns slide
+          const slide = (sel) => sel.transition("morph").delay(slideDelay).duration(SLIDE).ease(d3.easeCubicInOut);
+          setGeo(slide(budget), asBar(d.budget, "budget"));
+          setGeo(slide(box), asBar(d.boxOffice, "box"));
+        } else {
+          setGeo(budget, asBar(d.budget, "budget"));
+          setGeo(box, asBar(d.boxOffice, "box"));
+        }
+      }
+      return;
+    }
+
+    if (morphing) {
+      stopAll();
+      const node = this;
+      node._morphing = true;
+      // 1. Bars sink back into the x axis
+      setGeo(budget.transition("morph").delay(stagger).duration(SHRINK).ease(d3.easeCubicIn), asBar(0, "budget"));
+      setGeo(box.transition("morph").delay(stagger).duration(SHRINK).ease(d3.easeCubicIn), asBar(0, "box"))
+        .on("end", () => { budget.attr("opacity", 0); box.attr("opacity", 0); });
+      // 2. Then the dots rise out of it to their scores
+      const origVis = i < originals;
+      const remVis = i < remakes;
+      orig.attr("cy", base).attr("r", 0);
+      remake.attr("cy", base).attr("r", 0);
+      line.attr("y1", base).attr("y2", base);
+      const rise = (sel) => sel.transition("morph").delay(SHRINK + stagger).duration(GROW).ease(d3.easeCubicOut);
+      rise(orig).attr("cy", yR(d.original)).attr("r", origVis ? r : 0);
+      rise(remake).attr("cy", yR(d.remake)).attr("r", remVis ? r : 0);
+      rise(line).attr("y1", yR(d.original)).attr("y2", remVis ? yR(d.remake) : yR(d.original))
+        .on("end", () => {
+          // Re-sync with the deck in case it changed while the dots were rising
+          node._morphing = false;
+          node._orig = i < originals;
+          node._rem = i < remakes;
+          orig.attr("r", node._orig ? r : 0);
+          remake.attr("r", node._rem ? r : 0);
+          line.attr("y2", node._rem ? yR(d.remake) : yR(d.original));
+        });
+      return;
+    }
+    if (this._morphing) return; // the morph's end handler places the dots
+    orig.attr("cy", yR(d.original));
+    remake.attr("cy", yR(d.remake));
+    line.attr("y1", yR(d.original));
+
+    const origVis = i < originals;
+    const remVis = i < remakes;
+    const dur = (changed) => (animate && changed ? DURATION : 0);
+    const origChanged = this._orig !== origVis;
+    const remChanged = this._rem !== remVis;
+    this._orig = origVis;
+    this._rem = remVis;
+
+    orig.transition("show").duration(dur(origChanged)).ease(origVis ? d3.easeBackOut : d3.easeCubicIn)
+      .attr("r", origVis ? r : 0);
+
+    line.transition("show").duration(dur(remChanged)).ease(d3.easeCubicInOut)
+      .attr("y2", remVis ? yR(d.remake) : yR(d.original));
+
+    remake.transition("show").delay(animate && remChanged && remVis ? DURATION * 0.6 : 0)
+      .duration(dur(remChanged)).ease(remVis ? d3.easeBackOut : d3.easeCubicIn)
+      .attr("r", remVis ? r : 0);
+  });
+
+  renderOriginals({ split, wasSplit, animate, xO, yM, barWO, asBar, setGeo });
+  renderPanelTitles({ split, animate, x, xO });
+
+  drawnMode = mode;
+  figure.classed("is-money", bars);
+}
+
+// Right panel (compare mode): budget/box office bars for original animated
+// films from the same years. They grow in after the remakes slide left, and
+// shrink away before the remakes slide back.
+function renderOriginals({ split, wasSplit, animate, xO, yM, barWO, asBar, setGeo }) {
+  const cols = gOrigCols.selectAll("g.ocol").data(originalFilms, (d) => d.name).join((enter) => {
+    const g = enter.append("g").attr("class", "ocol");
+    g.append("rect").attr("class", "hit");
+    g.append("rect").attr("class", "bar budget").attr("opacity", 0);
+    g.append("rect").attr("class", "bar box").attr("opacity", 0);
+    g.append("text").attr("class", "x-label").attr("text-anchor", "end").attr("opacity", 0);
+    g.on("mouseenter", onHoverOriginal).on("mousemove", onMove).on("mouseleave", onLeave);
+    return g;
+  });
+
+  cols.attr("transform", (d) => `translate(${xO(d.name) + xO.bandwidth() / 2},0)`)
+    .classed("is-shown", split);
+  cols.select(".hit")
+    .attr("x", -xO.step() / 2).attr("width", xO.step())
+    .attr("y", MARGIN.top).attr("height", height - MARGIN.top);
+  cols.select(".x-label")
+    .attr("transform", `translate(4,${height - MARGIN.bottom + 30}) rotate(-45)`)
+    .text((d) => d.name)
+    .transition("show").delay(animate && split ? SLIDE : 0).duration(animate ? 300 : 0)
+    .attr("opacity", split ? 1 : 0);
+
+  const entering = animate && split && !wasSplit;
+  const leaving = animate && !split && wasSplit;
+  cols.each(function (d, i) {
+    const col = d3.select(this);
+    const budget = col.select(".bar.budget").interrupt("morph");
+    const box = col.select(".bar.box").interrupt("morph");
+    const stagger = i * MORPH_STAGGER;
+    if (entering) {
+      setGeo(budget.attr("opacity", 1), asBar(0, "budget", barWO));
+      setGeo(box.attr("opacity", 1), asBar(0, "box", barWO));
+      const grow = (sel) => sel.transition("morph").delay(SLIDE + stagger).duration(GROW).ease(d3.easeCubicOut);
+      setGeo(grow(budget), asBar(d.budget, "budget", barWO));
+      setGeo(grow(box), asBar(d.boxOffice, "box", barWO));
+    } else if (leaving) {
+      const sink = (sel) => sel.transition("morph").delay(stagger).duration(SHRINK).ease(d3.easeCubicIn);
+      setGeo(sink(budget), asBar(0, "budget", barWO));
+      setGeo(sink(box), asBar(0, "box", barWO))
+        .on("end", () => { budget.attr("opacity", 0); box.attr("opacity", 0); });
+    } else if (split) {
+      setGeo(budget.attr("opacity", 1), asBar(d.budget, "budget", barWO));
+      setGeo(box.attr("opacity", 1), asBar(d.boxOffice, "box", barWO));
+    } else {
+      setGeo(budget.attr("opacity", 0), asBar(0, "budget", barWO));
+      setGeo(box.attr("opacity", 0), asBar(0, "box", barWO));
+    }
+  });
+}
+
+// Panel titles above each half of the split chart
+function renderPanelTitles({ split, animate, x, xO }) {
+  const titles = split ? [
+    { key: "remakes", text: "Live-action remakes", x: x.range()[0] },
+    { key: "originals", text: "Original animated films", x: xO.range()[0] },
+  ] : [];
+  gTitles.selectAll("text.panel-title").data(titles, (d) => d.key).join(
+    (enter) => enter.append("text").attr("class", "panel-title").attr("opacity", 0)
+      .call((t) => t.transition("show").delay(animate ? SLIDE : 0).duration(animate ? 300 : 0).attr("opacity", 1)),
+    (update) => update,
+    (exit) => exit.transition("show").duration(animate ? 200 : 0).attr("opacity", 0).remove()
+  )
+    .attr("x", (d) => d.x + 4)
+    .attr("y", 14)
+    .text((d) => d.text);
+}
+
+// Bars once the first money caption reaches the middle of the viewport, and
+// the two-panel comparison once the first compare caption does. Read from
+// scroll position (not step events) so fast scrolling can't skip a mode.
+function setMode(next) {
+  if (next === mode) return;
+  mode = next;
+  tooltip.attr("hidden", true);
+  render(true);
+}
+
+const isSummary = () => originals === data.length && remakes === data.length;
+
+// Tooltip
+function onHover(event, d) {
+  d3.select(this).classed("is-hover", true);
+  if (!this.classList.contains("is-shown")) return;
+  const i = data.indexOf(d);
+  if (mode !== "reviews") {
+    tooltip.attr("hidden", null).html(`
+      <div class="tt-title">${d.name} (remake)</div>
+      <div class="tt-row"><span><span class="swatch budget"></span>Budget</span><b>${d.budget == null ? "n/a" : fmtMoney(d.budget)}</b></div>
+      <div class="tt-row"><span><span class="swatch box"></span>Box office</span><b>${d.boxOffice == null ? "Streaming only" : fmtMoney(d.boxOffice)}</b></div>
+      ${d.budget && d.boxOffice ? `<div class="tt-row"><span>Return</span><b>${(d.boxOffice / d.budget).toFixed(1)}× budget</b></div>`
+        : ""}
+    `);
+    onMove(event);
+    return;
+  }
+  tooltip.attr("hidden", null).html(`
+    <div class="tt-title">${d.name}</div>
+    <div class="tt-row"><span><span class="swatch original"></span>Original</span><b>${d.original}</b></div>
+    ${i < remakes ? `
+      <div class="tt-row"><span><span class="swatch remake"></span>Remake</span><b>${d.remake}</b></div>
+      <div class="tt-row"><span>Change</span><b>${fmtDelta(d.delta)}</b></div>` : ""}
+  `);
+  onMove(event);
+}
+
+function onHoverOriginal(event, d) {
+  d3.select(this).classed("is-hover", true);
+  if (!this.classList.contains("is-shown")) return;
+  tooltip.attr("hidden", null).html(`
+    <div class="tt-title">${d.name} (original)</div>
+    <div class="tt-row"><span><span class="swatch budget"></span>Budget</span><b>${fmtMoney(d.budget)}</b></div>
+    <div class="tt-row"><span><span class="swatch box"></span>Box office</span><b>${fmtMoney(d.boxOffice)}</b></div>
+    <div class="tt-row"><span>Return</span><b>${(d.boxOffice / d.budget).toFixed(1)}× budget</b></div>
+  `);
+  onMove(event);
+}
+
+function onMove(event) {
+  const fig = figure.node().getBoundingClientRect();
+  const tt = tooltip.node().getBoundingClientRect();
+  let left = event.clientX - fig.left + 14;
+  let top = event.clientY - fig.top - tt.height - 10;
+  if (left + tt.width > fig.width - 8) left = event.clientX - fig.left - tt.width - 14;
+  if (top < 8) top = event.clientY - fig.top + 16;
+  tooltip.style("left", `${left}px`).style("top", `${top}px`);
+}
+
+function onLeave() {
+  d3.select(this).classed("is-hover", false);
+  tooltip.attr("hidden", true);
+}
+
+function fillTable() {
+  d3.select("#data-table tbody").selectAll("tr").data(data).join("tr")
+    .html((d) => `<td>${d.name}</td><td>${d.original}</td><td>${d.remake}</td><td>${fmtDelta(d.delta)}</td>` +
+      `<td>${d.budget == null ? "n/a" : fmtMoney(d.budget)}</td><td>${d.boxOffice == null ? "Streaming only" : fmtMoney(d.boxOffice)}</td>`);
+  d3.select("#originals-table tbody").selectAll("tr").data(originalFilms).join("tr")
+    .html((d) => `<td>${d.name}</td><td>${fmtMoney(d.budget)}</td><td>${fmtMoney(d.boxOffice)}</td>`);
+}
+
+// ---- Step controller (replaces the scroll triggers) ----
+const STEPS = [];
+function buildSteps() {
+  data.forEach((d, i) => {
+    STEPS.push({ o: i + 1, r: i, m: "reviews", label: `${d.name}: original ${d.original}%` });
+    STEPS.push({ o: i + 1, r: i + 1, m: "reviews", label: `${d.name}: remake ${d.remake}%` });
+  });
+  STEPS.push({ o: data.length, r: data.length, m: "money", label: "Budget vs. box office" });
+  STEPS.push({ o: data.length, r: data.length, m: "compare", label: "Remakes vs. originals, same years" });
+}
+let cur = -1;
+function go(n, animate = true) {
+  n = Math.max(0, Math.min(STEPS.length - 1, n));
+  const s = STEPS[n]; cur = n;
+  originals = s.o; remakes = s.r;
+  if (s.m !== mode) { mode = s.m; tooltip.attr("hidden", true); }
+  render(animate);
+  const sl = document.getElementById("slider"); if (sl) sl.value = n;
+  const lb = document.getElementById("steplabel"); if (lb) lb.textContent = `${n + 1}/${STEPS.length}  ${s.label}`;
+}
+async function init() {
+  data = await loadData();
+  setupChart(); buildSteps();
+  const q = new URLSearchParams(location.search);
+  if (q.get("controls") === "0") document.body.classList.add("no-controls");
+  const sl = document.getElementById("slider"); sl.max = STEPS.length - 1;
+  resize();
+  go(+(q.get("step") || 0), false);
+  document.getElementById("prev").onclick = () => go(cur - 1);
+  document.getElementById("next").onclick = () => go(cur + 1);
+  sl.oninput = () => go(+sl.value);
+  document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight" || e.key === "ArrowDown") go(cur + 1); if (e.key === "ArrowLeft" || e.key === "ArrowUp") go(cur - 1); });
+  window.addEventListener("resize", () => { resize(); go(cur, false); });
+}
+init();
+</script>
+</body></html>
