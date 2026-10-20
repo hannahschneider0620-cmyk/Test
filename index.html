@@ -974,6 +974,14 @@ async function init() {
   document.getElementById("prev").onclick = () => go(cur - 1);
   document.getElementById("next").onclick = () => go(cur + 1);
   sl.oninput = () => go(+sl.value);
+  // Remote control: a parent page can send {type:"disney-step", step:N} or {type:"disney-progress", progress:0..1}
+  window.addEventListener("message", (e) => {
+    const d = e.data || {};
+    let n = null;
+    if (d.type === "disney-step") n = +d.step;
+    else if (d.type === "disney-progress") n = Math.round(Math.max(0, Math.min(1, +d.progress)) * (STEPS.length - 1));
+    if (n !== null && !isNaN(n) && n !== cur) go(n);
+  });
   document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight" || e.key === "ArrowDown") go(cur + 1); if (e.key === "ArrowLeft" || e.key === "ArrowUp") go(cur - 1); });
   window.addEventListener("resize", () => { resize(); go(cur, false); });
 }
