@@ -982,6 +982,14 @@ async function init() {
     else if (d.type === "disney-progress") n = Math.round(Math.max(0, Math.min(1, +d.progress)) * (STEPS.length - 1));
     if (n !== null && !isNaN(n) && n !== cur) go(n);
   });
+  // Opt-in (?wheel=1): when embedded, forward wheel/swipe movement to the parent page instead of scrolling
+  if (q.get("wheel") === "1" && window.parent !== window) {
+    const fwd = (dy) => window.parent.postMessage({ type: "disney-wheel", dy }, "*");
+    document.addEventListener("wheel", (e) => { e.preventDefault(); fwd(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY); }, { passive: false });
+    let ty = null;
+    document.addEventListener("touchstart", (e) => { ty = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener("touchmove", (e) => { e.preventDefault(); const y = e.touches[0].clientY; if (ty !== null) fwd(ty - y); ty = y; }, { passive: false });
+  }
   document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight" || e.key === "ArrowDown") go(cur + 1); if (e.key === "ArrowLeft" || e.key === "ArrowUp") go(cur - 1); });
   window.addEventListener("resize", () => { resize(); go(cur, false); });
 }
